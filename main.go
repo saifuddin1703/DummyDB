@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"strings"
 )
@@ -87,22 +88,23 @@ func (db *DB) Get(key string) ([]byte, error) {
 }
 
 func main() {
-	db := DB{
-		Name: "newdb",
+	// db := DB{
+	server, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		log.Fatal("Error listening")
 	}
 
-	val, _ := db.Get("t6")
-	fmt.Println("val : ", string(val))
+	fmt.Println("Listening on port 8080")
 
-	// err := db.Initialize()
-	// if err != nil {
-	// 	fmt.Println("Error : ", err)
-	// }
+	connectionCount := 0
+	for {
+		conn, err := server.Accept()
+		if err != nil {
+			log.Fatal("Error accepting connection")
+		}
+		connectionCount++
+		fmt.Println("Received connection : ", connectionCount)
 
-	// for i := 0; i < 5; i++ {
-	// 	err := db.Set(fmt.Sprintf("t%d", i), []byte("value"))
-	// 	if err != nil {
-	// 		fmt.Println("Error : ", err)
-	// 	}
-	// }
+		conn.Write([]byte("recieved connection"))
+	}
 }
