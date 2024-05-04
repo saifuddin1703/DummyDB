@@ -6,6 +6,8 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
+
 	"github.com/dummydb/db"
 )
 
@@ -35,6 +37,7 @@ func (s *Server) HandleConnection(conn net.Conn) {
 	// connectionCount++
 	fmt.Println("Received connection : ")
 	reader := bufio.NewReader(conn)
+	connId := fmt.Sprint(time.Now().Unix())
 
 readerLoop:
 	for {
@@ -52,6 +55,7 @@ readerLoop:
 			conn.Write([]byte("\r\n"))
 			continue readerLoop
 		}
+		log.Printf("%v I am writing %v ", connId, string(val))
 		conn.Write(val)
 		conn.Write([]byte("\r\n"))
 	}
@@ -84,13 +88,6 @@ func (s *Server) handleOperations(data []byte) ([]byte, error) {
 		// set operations
 		if strings.ToLower(ops[0]) == "get" {
 			key := strings.TrimSuffix(ops[1], "\r\n")
-			// for _, v := range key {
-			// 	if v != 0 {
-			// 		fmt.Println("v : ", v)
-			// 	}
-			// }
-			// fmt.Println("key : ", len(key))
-			// fmt.Println("next lien")
 			val, err := s.DBInstance.Get(key)
 			if err != nil {
 				return nil, fmt.Errorf("error getting value for key %s: %v", key, err)
@@ -104,7 +101,7 @@ func (s *Server) handleOperations(data []byte) ([]byte, error) {
 func main() {
 	server := Server{
 		Host: "localhost",
-		Port: 8080,
+		Port: 4000,
 	}
 	server.Start()
 	for {
