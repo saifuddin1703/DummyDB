@@ -11,6 +11,7 @@ import (
 type DB interface {
 	Put(key string, value []byte) error
 	Get(key string) ([]byte, error)
+	Keys() ([]byte, error)
 }
 
 var database DB
@@ -49,6 +50,30 @@ func (db *Database) Get(key string) ([]byte, error) {
 	return val, nil
 }
 
+func (db *Database) Keys() ([]byte, error) {
+	keys, err := db.LSMTree.GetAllKeys()
+	fmt.Println("keys : ", keys)
+	if err != nil {
+		return nil, err
+	}
+
+	toRet := ""
+
+	for i, key := range keys {
+		if i == len(keys)-1 {
+			toRet += key
+		} else {
+			toRet += fmt.Sprintf("%s,", key)
+		}
+	}
+	// keyBytes, err := json.Marshal(keys)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	return []byte(toRet), nil
+}
+
 func GetNewDatabase(name string) (DB, error) {
 	if database == nil {
 		// lsmtree.LSMT.
@@ -60,6 +85,7 @@ func GetNewDatabase(name string) (DB, error) {
 		database = dbInstance // Correctly assign to interface
 		lsmtree.LSMT.BuildMemCacheFromWAL(dbInstance.WALFile)
 		lsmtree.LSMT.StartConverter(dbInstance.WALFile)
+		lsmtree.LSMT.StartMerger()
 	}
 	return database, nil
 }

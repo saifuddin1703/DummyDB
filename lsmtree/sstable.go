@@ -15,6 +15,17 @@ type SSTable struct {
 	KeyMap      map[string]int64
 	filePath    string
 	SegmentSize int64
+	IsMerged    bool
+	ToDelete    bool
+}
+
+func (s *SSTable) GetSegment() ([]byte, error) {
+	segment, err := os.ReadFile(s.filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	return segment, nil
 }
 
 func (s *SSTable) HandleConstruction(MemCache *redblacktree.Tree) {
@@ -82,11 +93,13 @@ func (s *SSTable) Search(query string, byteoffset int64) ([]byte, error) {
 
 	fmt.Println("segment string : ", segmentString)
 	for _, kvpair := range kvpairs {
-		kv := strings.Split(kvpair, ":")
-		key := kv[0]
-		value := kv[1]
-		if key == query {
-			return []byte(value), nil
+		if len(kvpair) > 0 {
+			kv := strings.Split(kvpair, ":")
+			key := kv[0]
+			value := kv[1]
+			if key == query {
+				return []byte(value), nil
+			}
 		}
 	}
 

@@ -24,7 +24,7 @@ func (s *Server) Start() {
 		log.Fatal("Error listening")
 	}
 	s.Listener = listener
-	fmt.Println("Listening on port 8080")
+	fmt.Println("Listening on port 4000")
 
 	dbInstance, _ := db.GetNewDatabase("MyDB")
 	if dbInstance != nil {
@@ -55,7 +55,7 @@ readerLoop:
 			conn.Write([]byte("\r\n"))
 			continue readerLoop
 		}
-		log.Printf("%v I am writing %v ", connId, string(val))
+		log.Printf("%v I am writing ", connId)
 		conn.Write(val)
 		conn.Write([]byte("\r\n"))
 	}
@@ -66,9 +66,9 @@ func (s *Server) handleOperations(data []byte) ([]byte, error) {
 	ops := strings.Split(dataString, " ")
 
 	fmt.Println("ops : ", len(ops))
-	if len(ops) > 3 || len(ops) < 2 {
+	if len(ops) > 3 || len(ops) < 1 {
 		// for now returning error but need to handle accordingly in future
-		return nil, fmt.Errorf("Invalid operation")
+		return nil, fmt.Errorf("invalid operation")
 	}
 
 	if len(ops) == 3 {
@@ -85,7 +85,7 @@ func (s *Server) handleOperations(data []byte) ([]byte, error) {
 		}
 	}
 	if len(ops) == 2 {
-		// set operations
+		// get operations
 		if strings.ToLower(ops[0]) == "get" {
 			key := strings.TrimSuffix(ops[1], "\r\n")
 			val, err := s.DBInstance.Get(key)
@@ -95,7 +95,18 @@ func (s *Server) handleOperations(data []byte) ([]byte, error) {
 			return val, nil
 		}
 	}
-	return nil, fmt.Errorf("Invalide operation")
+
+	if len(ops) == 1 {
+		// keys operation
+		if strings.ToLower(ops[0]) == "keys" {
+			keys, err := s.DBInstance.Keys()
+			if err != nil {
+				return nil, fmt.Errorf("error keys %v", err)
+			}
+			return keys, nil
+		}
+	}
+	return nil, fmt.Errorf("invalide operation")
 }
 
 func main() {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -24,7 +25,7 @@ func main() {
 		input, _ := reader.ReadString('\n')
 
 		// Send the input
-		_, err = fmt.Fprintf(conn, input+"\n")
+		_, err = fmt.Fprint(conn, input)
 		if err != nil {
 			fmt.Println("Error sending data:", err)
 			break
@@ -32,10 +33,11 @@ func main() {
 
 		// Receive the response
 		response, err := bufio.NewReader(conn).ReadString('\n')
+		response = strings.Replace(response, ",", "\n",-1)
 		if err != nil {
 			fmt.Println("Error reading response:", err)
 			continue
 		}
-		fmt.Print("Received:", response)
+		fmt.Print(response)
 	}
 }
