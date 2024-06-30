@@ -34,7 +34,7 @@ func (s *SSTable) HandleConstruction(MemCache *redblacktree.Tree) {
 	}()
 	iterator := MemCache.Iterator()
 	now := time.Now().Unix()
-	s.filePath = fmt.Sprintf("./segments/%v-segment", now)
+	s.filePath = fmt.Sprintf("../segments/%v-segment", now)
 	size := 0
 	for iterator.Next() {
 		key := iterator.Key().(string)
@@ -104,4 +104,15 @@ func (s *SSTable) Search(query string, byteoffset int64) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("key not found")
+}
+
+func (s *SSTable) Destroy() error {
+	filepath := s.filePath
+
+	err := os.Remove(filepath)
+	if err != nil {
+		return err
+	}
+	s = nil
+	return nil
 }

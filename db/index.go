@@ -50,6 +50,11 @@ func (db *Database) Get(key string) ([]byte, error) {
 	return val, nil
 }
 
+// func (db *Database) Delete(key string) error {
+
+// 	// 
+// 	return nil
+// }
 func (db *Database) Keys() ([]byte, error) {
 	keys, err := db.LSMTree.GetAllKeys()
 	fmt.Println("keys : ", keys)

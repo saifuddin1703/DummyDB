@@ -21,10 +21,11 @@ var (
 func init() {
 	rbtree := redblacktree.NewWithStringComparator()
 	LSMT = &LSMTree{
-		MemCache:    rbtree,
-		SizeChannel: make(chan int),
-		Tables:      make([]*SSTable, 0),
-		LSMLock:     &sync.RWMutex{},
+		MemCache:        rbtree,
+		SizeChannel:     make(chan int),
+		Tables:          make([]*SSTable, 0),
+		LSMLock:         &sync.RWMutex{},
+		MergerSemaphore: make(chan int, 1),
 	}
 	LSMT.LoadSSTable()
 	tables, err := json.MarshalIndent(LSMT.Tables, " ", " ")
@@ -46,13 +47,13 @@ type LSMTree struct {
 
 func (l *LSMTree) LoadSSTable() {
 	log.Println("Loading SSTables ...")
-	dirs, err := os.ReadDir("segments")
+	dirs, err := os.ReadDir("../segments")
 	if err != nil {
 		log.Fatal("Error listing all the segments : ", err)
 	}
 
 	for _, dir := range dirs {
-		segmentFile := "./segments/" + dir.Name()
+		segmentFile := "../segments/" + dir.Name()
 		file, err := os.OpenFile(segmentFile, os.O_RDWR, 0644)
 		if err != nil {
 			log.Fatal("error opening segment file : ", err)
@@ -106,20 +107,24 @@ func (l *LSMTree) BuildMemCacheFromWAL(walLocation string) {
 	if err != nil {
 		log.Println("Error opening wal file")
 	}
-	kvs := strings.Split(string(walContents), ";")
 
+	kvs := strings.Split(string(walContents), ";")
+	fmt.Println("wal contents : ", kvs)
 	for _, kv := range kvs {
 		if len(kv) > 0 {
 			kvpair := strings.Split(kv, ":")
 			key := kvpair[0]
 			value := kvpair[1]
 			l.MemCache.Put(key, value)
+			size := unsafe.Sizeof(*l.MemCache.GetNode(key))
+			l.MemCacheSize += uint64(size)
 		}
 	}
 
 }
 
 func (l *LSMTree) MergeSSTables() error {
+	fmt.Println("merging tables...")
 	tables := l.Tables
 	newSegmentContent, err := tables[len(tables)-1].GetSegment()
 	if err != nil {
@@ -137,13 +142,18 @@ func (l *LSMTree) MergeSSTables() error {
 			return err
 		}
 		olderSegment := strings.Split(string(olderSegmentContent), ";")
+		fmt.Println("oldersegment : ", olderSegment)
+		fmt.Println("newersegment : ", newSegment)
 		newSegment = mergeTwoSegments(olderSegment[:len(olderSegment)-1], newSegment[:len(newSegment)-1])
 		tables[i].ToDelete = true
+		// a, _ := json.Marshal(tables[i])
+		// fmt.Println("to deleted : ", string(a))
 	}
 
+	tables[len(tables)-1].ToDelete = true
 	ssTable := SSTable{
 		KeyMap:   make(map[string]int64),
-		filePath: fmt.Sprintf("./segments/%v-segment", time.Now().Unix()),
+		filePath: fmt.Sprintf("../segments/%v-segment", time.Now().Unix()),
 		IsMerged: true,
 	}
 
@@ -171,10 +181,34 @@ func (l *LSMTree) MergeSSTables() error {
 
 	ssTable.SegmentSize = int64(size)
 	l.LSMLock.Lock()
-	if lastIndex != -1 {
-		l.Tables = l.Tables[:lastIndex+1]
+
+	if lastIndex == -1 {
+		lastIndex = len(tables) - 1
 	}
+	toDeleted := tables[lastIndex+1:]
+
+	// delete all the merges segments
+
+	for _, deleted := range toDeleted {
+		if !deleted.ToDelete {
+			fmt.Println("someting wrong")
+			// log.Fatal(err)
+			// a, _ := json.Marshal(deleted)
+			// fmt.Println("to deleted : ", string(a))
+		}
+		err := deleted.Destroy()
+		if err != nil {
+			fmt.Println("someting wrong")
+			log.Fatal(err)
+		}
+	}
+	if lastIndex != -1 {
+		l.Tables = tables[:lastIndex+1]
+	}
+
+	// ssTable.AppendIntoFile()
 	l.Tables = append(l.Tables, &ssTable)
+	fmt.Println("after merges tables : ", l.Tables)
 	l.LSMLock.Unlock()
 	return nil
 }
@@ -197,36 +231,41 @@ func mergeTwoSegments(segment1 []string, segment2 []string) []string {
 		key2 := strings.Split(entry2, ":")[0]
 
 		if key1 == key2 {
+			fmt.Println("entry : ", entry2)
 			sortedSegment = append(sortedSegment, entry2)
 			i++
 			j++
 		} else if key1 < key2 {
+			fmt.Println("entry : ", entry1)
 			sortedSegment = append(sortedSegment, entry1)
 			i++
 		} else {
+			fmt.Println("entry : ", entry2)
 			sortedSegment = append(sortedSegment, entry2)
 			j++
 		}
 	}
 
-	return sortedSegment
-}
-
-func (l *LSMTree) Put(key string, value string) {
-	l.LSMLock.Lock()
-	defer l.LSMLock.Unlock()
-	l.MemCache.Put(key, value)
-	size := unsafe.Sizeof(*l.MemCache.GetNode(key))
-	l.MemCacheSize += uint64(size)
-	if l.MemCacheSize > utils.TABLE_SIZE {
-		l.SizeChannel <- 1
+	if j < m {
+		entry2 := segment2[j]
+		sortedSegment = append(sortedSegment, entry2)
 	}
+
+	if i < n {
+		entry1 := segment1[i]
+		sortedSegment = append(sortedSegment, entry1)
+	}
+
+	fmt.Println("sortedSegment: ", sortedSegment)
+
+	return sortedSegment
 }
 
 func (l *LSMTree) StartMerger() {
 	go func() {
 		fmt.Println("Segment merger is running...")
 		for range l.MergerSemaphore {
+			fmt.Println("Starting the merger")
 			err := l.MergeSSTables()
 			if err != nil {
 				log.Fatal("Error merging")
@@ -235,24 +274,24 @@ func (l *LSMTree) StartMerger() {
 	}()
 }
 func (l *LSMTree) StartConverter(walLocation string) {
-	// ticker := time.NewTicker(1 * time.Minute) // for testing purposes only
+	ticker := time.NewTicker(10 * time.Second) // for testing purposes only
 	go func() {
 		fmt.Println("MemCache converter is running...")
-		// for {
-		// 	select {
-		// 	case <-l.SizeChannel:
-		// 		l.ConvertMemCacheToSSTable(walLocation)
-		// 	case <-ticker.C:
-		// 		if l.MemCacheSize > 0 {
-		// 			l.ConvertMemCacheToSSTable(walLocation)
-		// 		}
-		// 	}
-		// }
-
-		for range l.SizeChannel {
-			l.ConvertMemCacheToSSTable(walLocation)
+		for {
+			select {
+			case <-l.SizeChannel:
+				l.ConvertMemCacheToSSTable(walLocation)
+			case <-ticker.C:
+				if l.MemCacheSize > 0 {
+					l.ConvertMemCacheToSSTable(walLocation)
+				}
+			}
 		}
-		fmt.Println("MemCache converter exited...")
+
+		// for range l.SizeChannel {
+		// 	l.ConvertMemCacheToSSTable(walLocation)
+		// }
+		// fmt.Println("MemCache converter exited...")
 	}()
 }
 
@@ -266,12 +305,15 @@ func (l *LSMTree) truncateWAL(walLocation string) {
 	if err != nil {
 		log.Fatal("Error truncating wal location : ", err)
 	}
+	fmt.Println("WAL is truncated")
 }
 
 func (l *LSMTree) ConvertMemCacheToSSTable(walLocation string) {
+	fmt.Println("convertimg mem cache")
 	l.LSMLock.Lock()
 	defer func() {
 		l.MemCacheSize = 0
+		fmt.Println("truncate")
 		l.truncateWAL(walLocation)
 	}()
 	defer l.LSMLock.Unlock()
@@ -285,9 +327,27 @@ func (l *LSMTree) ConvertMemCacheToSSTable(walLocation string) {
 	}
 }
 
+func (l *LSMTree) Put(key string, value string) {
+	l.LSMLock.Lock()
+	defer l.LSMLock.Unlock()
+	l.MemCache.Put(key, value)
+	size := unsafe.Sizeof(*l.MemCache.GetNode(key))
+	l.MemCacheSize += uint64(size)
+	if l.MemCacheSize > utils.TABLE_SIZE {
+		l.SizeChannel <- 1
+	}
+}
+
+func (l *LSMTree) Remove(key string) {
+	l.Put(key, utils.DELETED_INDICATOR)
+}
+
 func (l *LSMTree) Find(query string) ([]byte, error) {
 	value, found := l.MemCache.Get(query)
 	if found {
+		if value == utils.DELETED_INDICATOR {
+			return nil, fmt.Errorf("key not found")
+		}
 		return ([]byte)(value.(string)), nil
 	} else {
 		// find in the sstables
@@ -338,9 +398,12 @@ func (l *LSMTree) GetAllKeys() ([]string, error) {
 
 	for iterator.Next() {
 		key := iterator.Key().(string)
+		val := iterator.Value().(string)
 		if _, ok := uniqueKeys[key]; !ok {
-			keys = append(keys, key)
-			uniqueKeys[key] = 1
+			if val != utils.DELETED_INDICATOR {
+				keys = append(keys, key)
+				uniqueKeys[key] = 1
+			}
 		}
 	}
 	for i := len(l.Tables) - 1; i >= 0; i-- {
@@ -356,12 +419,15 @@ func (l *LSMTree) GetAllKeys() ([]string, error) {
 			if kv != "" {
 				kvpair := strings.Split(kv, ":")
 				key := kvpair[0]
+				val := kvpair[1]
 				// fmt.Println("key : ", key)
 				// _, pre := uniqueKeys[key]
 				// fmt.Printf("%s is %v\n", key, pre)
 				if _, ok := uniqueKeys[key]; !ok {
-					keys = append(keys, key)
-					uniqueKeys[key] = 1
+					if val != utils.DELETED_INDICATOR {
+						keys = append(keys, key)
+						uniqueKeys[key] = 1
+					}
 				}
 			}
 		}
