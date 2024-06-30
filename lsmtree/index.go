@@ -10,6 +10,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/dummydb/utils"
 	"github.com/emirpasic/gods/trees/redblacktree"
 )
@@ -20,12 +21,15 @@ var (
 
 func init() {
 	rbtree := redblacktree.NewWithStringComparator()
+	filter := bloom.NewWithEstimates(1000000, 0.01)
+
 	LSMT = &LSMTree{
 		MemCache:        rbtree,
 		SizeChannel:     make(chan int),
 		Tables:          make([]*SSTable, 0),
 		LSMLock:         &sync.RWMutex{},
 		MergerSemaphore: make(chan int, 1),
+		Filter:          filter,
 	}
 	LSMT.LoadSSTable()
 	tables, err := json.MarshalIndent(LSMT.Tables, " ", " ")
@@ -43,6 +47,7 @@ type LSMTree struct {
 	Tables          []*SSTable
 	LSMLock         *sync.RWMutex
 	MergerSemaphore chan int
+	Filter          *bloom.BloomFilter
 }
 
 func (l *LSMTree) LoadSSTable() {
@@ -336,6 +341,7 @@ func (l *LSMTree) Put(key string, value string) {
 	if l.MemCacheSize > utils.TABLE_SIZE {
 		l.SizeChannel <- 1
 	}
+	l.Filter.Add([]byte(key))
 }
 
 func (l *LSMTree) Remove(key string) {
@@ -343,6 +349,11 @@ func (l *LSMTree) Remove(key string) {
 }
 
 func (l *LSMTree) Find(query string) ([]byte, error) {
+	present := l.Filter.Test([]byte(query))
+	if !present {
+		fmt.Println("value is not present the bloom filter")
+		return nil, fmt.Errorf("key not found")
+	}
 	value, found := l.MemCache.Get(query)
 	if found {
 		if value == utils.DELETED_INDICATOR {
