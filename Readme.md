@@ -1,21 +1,3 @@
-The project folder contains various files and directories. Here's a brief overview:
-
-- `go.mod` and `go.sum`: These files manage dependencies for a Go project.
-- `test`: Likely contains test files.
-- `bin`: Typically used for binary files.
-- `makefile`: Script for automating tasks.
-- `utils`, `client`, `dummydb-wal`, `db`, `segments`, `lsmtree`: These directories likely contain the source code and related components of the project.
-- `todo.md`: Might contain a list of tasks or future enhancements.
-- `.gitignore`: Specifies which files and directories to ignore in git.
-- `main.go`: Main entry point for the Go application.
-- `.git`: Directory for version control using git.
-
-I will now check the contents of some key files (`main.go`, `todo.md`, `makefile`) to gather more details for the README.
-
-Based on the contents of the `main.go`, `todo.md`, and `makefile` files, here is a README for the project:
-
----
-
 # DummyDB
 
 DummyDB is a simple database server written in Go. It allows for basic database operations and includes a client for interacting with the server.
