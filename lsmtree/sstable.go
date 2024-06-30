@@ -34,7 +34,7 @@ func (s *SSTable) HandleConstruction(MemCache *redblacktree.Tree) {
 	}()
 	iterator := MemCache.Iterator()
 	now := time.Now().Unix()
-	s.filePath = fmt.Sprintf("../segments/%v-segment", now)
+	s.filePath = fmt.Sprintf("./segments/%v-segment", now)
 	size := 0
 	for iterator.Next() {
 		key := iterator.Key().(string)

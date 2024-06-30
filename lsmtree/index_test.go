@@ -176,6 +176,47 @@ func TestLSMTree_BuildMemCacheFromWAL(t *testing.T) {
 	os.Remove(walLocation)
 }
 
+func TestLSMTree_Remove(t *testing.T) {
+	LSMT := &LSMTree{
+		MemCache:        redblacktree.NewWithStringComparator(),
+		SizeChannel:     make(chan int),
+		Tables:          make([]*SSTable, 0),
+		LSMLock:         &sync.RWMutex{},
+		MergerSemaphore: make(chan int, 1),
+	}
+
+	// Add some keys to MemCache
+	LSMT.Put("key1", "value1")
+	LSMT.Put("key2", "value2")
+
+	// Verify key1 exists
+	value, err := LSMT.Find("key1")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if string(value) != "value1" {
+		t.Fatalf("expected value1, got %s", string(value))
+	}
+
+	// Remove key1
+	LSMT.Remove("key1")
+
+	// Verify key1 is marked as deleted
+	deletedValue, err := LSMT.Find("key1")
+	if err == nil || string(deletedValue) != "" {
+		t.Fatalf("expected key1 to be marked as deleted, got %v", deletedValue)
+	}
+
+	// Verify key2 still exists
+	value2, err := LSMT.Find("key2")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if string(value2) != "value2" {
+		t.Fatalf("expected value2, got %s", string(value2))
+	}
+}
+
 func Test_mergeTwoSegments(t *testing.T) {
 	type args struct {
 		segment1 []string

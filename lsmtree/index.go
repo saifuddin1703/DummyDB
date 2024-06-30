@@ -47,13 +47,13 @@ type LSMTree struct {
 
 func (l *LSMTree) LoadSSTable() {
 	log.Println("Loading SSTables ...")
-	dirs, err := os.ReadDir("../segments")
+	dirs, err := os.ReadDir("./segments")
 	if err != nil {
 		log.Fatal("Error listing all the segments : ", err)
 	}
 
 	for _, dir := range dirs {
-		segmentFile := "../segments/" + dir.Name()
+		segmentFile := "./segments/" + dir.Name()
 		file, err := os.OpenFile(segmentFile, os.O_RDWR, 0644)
 		if err != nil {
 			log.Fatal("error opening segment file : ", err)
@@ -153,7 +153,7 @@ func (l *LSMTree) MergeSSTables() error {
 	tables[len(tables)-1].ToDelete = true
 	ssTable := SSTable{
 		KeyMap:   make(map[string]int64),
-		filePath: fmt.Sprintf("../segments/%v-segment", time.Now().Unix()),
+		filePath: fmt.Sprintf("./segments/%v-segment", time.Now().Unix()),
 		IsMerged: true,
 	}
 
@@ -402,8 +402,8 @@ func (l *LSMTree) GetAllKeys() ([]string, error) {
 		if _, ok := uniqueKeys[key]; !ok {
 			if val != utils.DELETED_INDICATOR {
 				keys = append(keys, key)
-				uniqueKeys[key] = 1
 			}
+			uniqueKeys[key] = 1
 		}
 	}
 	for i := len(l.Tables) - 1; i >= 0; i-- {
@@ -422,12 +422,13 @@ func (l *LSMTree) GetAllKeys() ([]string, error) {
 				val := kvpair[1]
 				// fmt.Println("key : ", key)
 				// _, pre := uniqueKeys[key]
-				// fmt.Printf("%s is %v\n", key, pre)
+				// fmt.Printf("%s is %v\n", key, val)
 				if _, ok := uniqueKeys[key]; !ok {
 					if val != utils.DELETED_INDICATOR {
+						// fmt.Println("key and val : ", key, val)
 						keys = append(keys, key)
-						uniqueKeys[key] = 1
 					}
+					uniqueKeys[key] = 1
 				}
 			}
 		}

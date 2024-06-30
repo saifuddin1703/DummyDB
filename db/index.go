@@ -12,6 +12,7 @@ type DB interface {
 	Put(key string, value []byte) error
 	Get(key string) ([]byte, error)
 	Keys() ([]byte, error)
+	Delete(key string) error
 }
 
 var database DB
@@ -49,12 +50,15 @@ func (db *Database) Get(key string) ([]byte, error) {
 	}
 	return val, nil
 }
-
-// func (db *Database) Delete(key string) error {
-
-// 	// 
-// 	return nil
-// }
+func (db *Database) Delete(key string) error {
+	_, err := db.Get(key)
+	if err != nil {
+		return err
+	} else {
+		db.LSMTree.Remove(key)
+	}
+	return nil
+}
 func (db *Database) Keys() ([]byte, error) {
 	keys, err := db.LSMTree.GetAllKeys()
 	fmt.Println("keys : ", keys)

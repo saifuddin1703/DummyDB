@@ -94,6 +94,14 @@ func (s *Server) handleOperations(data []byte) ([]byte, error) {
 			}
 			return val, nil
 		}
+		if strings.ToLower(ops[0]) == "del" {
+			key := strings.TrimSuffix(ops[1], "\r\n")
+			err := s.DBInstance.Delete(key)
+			if err != nil {
+				return nil, fmt.Errorf("error getting value for key %s: %v", key, err)
+			}
+			return []byte("key deleted"), nil
+		}
 	}
 
 	if len(ops) == 1 {
