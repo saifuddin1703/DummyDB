@@ -1,6 +1,7 @@
 package lsmtree
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -13,14 +14,14 @@ import (
 
 type SSTable struct {
 	KeyMap      map[string]int64
-	filePath    string
+	FilePath    string
 	SegmentSize int64
 	IsMerged    bool
 	ToDelete    bool
 }
 
 func (s *SSTable) GetSegment() ([]byte, error) {
-	segment, err := os.ReadFile(s.filePath)
+	segment, err := os.ReadFile(s.FilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +35,7 @@ func (s *SSTable) HandleConstruction(MemCache *redblacktree.Tree) {
 	}()
 	iterator := MemCache.Iterator()
 	now := time.Now().Unix()
-	s.filePath = fmt.Sprintf("./segments/%v-segment", now)
+	s.FilePath = fmt.Sprintf("./segments/%v-segment", now)
 	size := 0
 	for iterator.Next() {
 		key := iterator.Key().(string)
@@ -55,7 +56,7 @@ func (s *SSTable) HandleConstruction(MemCache *redblacktree.Tree) {
 }
 
 func (s *SSTable) AppendIntoFile(data []byte) (int64, int64, error) {
-	file, err := os.OpenFile(s.filePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	file, err := os.OpenFile(s.FilePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -72,8 +73,31 @@ func (s *SSTable) AppendIntoFile(data []byte) (int64, int64, error) {
 	return fileSize, fileSize + int64(n), nil
 }
 
+func binarySearchKV(kvpairs []string, query string) ([]byte, error) {
+	low := 0
+	high := len(kvpairs) - 1
+
+	for low <= high {
+		mid := (low + high) / 2
+		kv := strings.Split(kvpairs[mid], ":")
+		key := kv[0]
+
+		if key == query {
+			return []byte(kv[1]), nil
+		}
+
+		if key < query {
+			low = mid + 1
+		} else {
+			high = mid - 1
+		}
+	}
+
+	return nil, errors.New("key not found")
+}
+
 func (s *SSTable) Search(query string, byteoffset int64) ([]byte, error) {
-	file, err := os.OpenFile(s.filePath, os.O_RDWR, 0644)
+	file, err := os.OpenFile(s.FilePath, os.O_RDWR, 0644)
 	if err != nil {
 		// return 0, 0, err
 		return nil, err
@@ -92,24 +116,24 @@ func (s *SSTable) Search(query string, byteoffset int64) ([]byte, error) {
 	kvpairs := strings.Split(segmentString, ";")
 
 	fmt.Println("segment string : ", segmentString)
-	for _, kvpair := range kvpairs {
-		if len(kvpair) > 0 {
-			kv := strings.Split(kvpair, ":")
-			key := kv[0]
-			value := kv[1]
-			if key == query {
-				return []byte(value), nil
-			}
-		}
-	}
+	// for _, kvpair := range kvpairs {
+	// 	if len(kvpair) > 0 {
+	// 		kv := strings.Split(kvpair, ":")
+	// 		key := kv[0]
+	// 		value := kv[1]
+	// 		if key == query {
+	// 			return []byte(value), nil
+	// 		}
+	// 	}
+	// }
 
-	return nil, fmt.Errorf("key not found")
+	return binarySearchKV(kvpairs, query)
 }
 
 func (s *SSTable) Destroy() error {
-	filepath := s.filePath
+	FilePath := s.FilePath
 
-	err := os.Remove(filepath)
+	err := os.Remove(FilePath)
 	if err != nil {
 		return err
 	}

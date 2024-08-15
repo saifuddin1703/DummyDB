@@ -83,7 +83,7 @@ func (l *LSMTree) LoadSSTable() {
 		}
 		ssTable := SSTable{
 			KeyMap:      make(map[string]int64),
-			filePath:    segmentFile,
+			FilePath:    segmentFile,
 			SegmentSize: segmentSize,
 			IsMerged:    isMerged,
 		}
@@ -158,7 +158,7 @@ func (l *LSMTree) MergeSSTables() error {
 	tables[len(tables)-1].ToDelete = true
 	ssTable := SSTable{
 		KeyMap:   make(map[string]int64),
-		filePath: fmt.Sprintf("./segments/%v-segment", time.Now().Unix()),
+		FilePath: fmt.Sprintf("./segments/%v-segment", time.Now().Unix()),
 		IsMerged: true,
 	}
 
@@ -369,7 +369,7 @@ func (l *LSMTree) Find(query string) ([]byte, error) {
 		// loop through the l.Tables in reverse order
 		for i := len(l.Tables) - 1; i >= 0; i-- {
 			table := l.Tables[i]
-			fmt.Println("table : ", table.filePath)
+			fmt.Println("table : ", table.FilePath)
 			hashtable := table.KeyMap
 			prevKey := ""
 			var offset int64 = 0
@@ -419,7 +419,7 @@ func (l *LSMTree) GetAllKeys() ([]string, error) {
 	}
 	for i := len(l.Tables) - 1; i >= 0; i-- {
 		table := l.Tables[i]
-		tableContent, err := os.ReadFile(table.filePath)
+		tableContent, err := os.ReadFile(table.FilePath)
 		if err != nil {
 			return nil, err
 		}

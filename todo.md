@@ -6,7 +6,8 @@ whenever the sstable crosses 5mb size combine the sstable with the previous one 
 process- p0
 
 1. combile the segments -- done
-2. add bloom filter
+2. add bloom filter -- done
+3. create testing environment and take the segments files path dynamically from envs
 
 functions - p2
 
