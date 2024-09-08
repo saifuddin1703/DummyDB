@@ -33,25 +33,41 @@ func (s *SSTable) HandleConstruction(MemCache *redblacktree.Tree) {
 	defer func() {
 		MemCache.Clear()
 	}()
-	iterator := MemCache.Iterator()
+	fmt.Printf("Inserting %d keys \n", len(MemCache.Keys()))
+	fmt.Println("Inserting keys : ", MemCache.Keys())
+	// iterator := MemCache.Iterator()
 	now := time.Now().Unix()
 	s.FilePath = fmt.Sprintf("./segments/%v-segment", now)
 	size := 0
-	for iterator.Next() {
-		key := iterator.Key().(string)
+	// count := 0
+	// keys := []string{}
+	for idx, key := range MemCache.Keys() {
+		nkey, ok := key.(string)
 		// fmt.Println("value : ", string(iterator.Value().([]byte)))
-		value := iterator.Value().(string)
-
-		data := key + ":" + value + ";"
+		if !ok {
+			fmt.Println("error getting key ", key)
+		}
+		value, ok := MemCache.Get(key)
+		if !ok {
+			fmt.Println("error getting value ", key)
+		}
+		nvalue := value.(string)
+		data := nkey + ":" + nvalue + ";"
 		prevFileSize, currenFilesize, err := s.AppendIntoFile([]byte(data))
-		size += int(currenFilesize)
+		size = int(currenFilesize)
+		fmt.Println("size : ", currenFilesize)
 		if err != nil {
-			log.Fatal("error appending segment")
+			log.Fatal("error appending segment", err)
 		}
-		if prevFileSize == 0 || currenFilesize > 100*utils.KB || !iterator.Next() {
-			s.KeyMap[key] = prevFileSize
+		if prevFileSize == 0 || currenFilesize > 100*utils.KB || idx == MemCache.Size()-1 {
+			s.KeyMap[nkey] = prevFileSize
+			fmt.Println("key and offset : ", nkey, prevFileSize)
 		}
+
 	}
+	// fmt.Println("size : ", size)
+	// fmt.Printf("Inserted %d keys \n", count)
+	// fmt.Println("Inserted keys", keys)
 	s.SegmentSize = int64(size)
 }
 
@@ -62,7 +78,7 @@ func (s *SSTable) AppendIntoFile(data []byte) (int64, int64, error) {
 	}
 	stat, err := file.Stat()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error getting file stats", err)
 	}
 	fileSize := stat.Size()
 
@@ -93,7 +109,7 @@ func binarySearchKV(kvpairs []string, query string) ([]byte, error) {
 		}
 	}
 
-	return nil, errors.New("key not found")
+	return nil, errors.New("key not found during the search")
 }
 
 func (s *SSTable) Search(query string, byteoffset int64) ([]byte, error) {
@@ -103,10 +119,13 @@ func (s *SSTable) Search(query string, byteoffset int64) ([]byte, error) {
 		return nil, err
 	}
 
-	segment := make([]byte, s.SegmentSize)
-	fmt.Println("segment size: ", s.SegmentSize)
+	segment := make([]byte, (s.SegmentSize - byteoffset))
+	// fmt.Println("segment size: ", s.SegmentSize-1)
 	n, err := file.ReadAt(segment, byteoffset)
 	fmt.Printf("readed %v bytes \n", n)
+	// info, _ := file.Stat()
+	// fmt.Println("file size : ", info.Size())
+	// fmt.Println("segment : ", string(segment))
 	if err != nil {
 		fmt.Println("err : ", err)
 		return nil, err
@@ -115,7 +134,7 @@ func (s *SSTable) Search(query string, byteoffset int64) ([]byte, error) {
 	segmentString := string(segment)
 	kvpairs := strings.Split(segmentString, ";")
 
-	fmt.Println("segment string : ", segmentString)
+	// fmt.Println("segment string : ", segmentString)
 	// for _, kvpair := range kvpairs {
 	// 	if len(kvpair) > 0 {
 	// 		kv := strings.Split(kvpair, ":")

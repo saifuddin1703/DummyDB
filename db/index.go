@@ -92,9 +92,21 @@ func GetNewDatabase(name string) (DB, error) {
 			WALFile: "dummydb-wal",
 		}
 		database = dbInstance // Correctly assign to interface
+
+		// create the wal file if not exists
+		// Check if the file exists
+		if _, err := os.Stat(dbInstance.WALFile); os.IsNotExist(err) {
+			// Create an empty file if it doesn't exist
+			emptyFile, err := os.Create(dbInstance.WALFile)
+			if err != nil {
+				fmt.Println("Error creating file:", err)
+			}
+			emptyFile.Close()
+			fmt.Println("File created:", dbInstance.WALFile)
+		}
 		lsmtree.LSMT.BuildMemCacheFromWAL(dbInstance.WALFile)
-		lsmtree.LSMT.StartConverter(dbInstance.WALFile)
-		lsmtree.LSMT.StartMerger()
+		// lsmtree.LSMT.StartConverter(dbInstance.WALFile)
+		// lsmtree.LSMT.StartMerger()
 	}
 	return database, nil
 }

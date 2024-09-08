@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 	"strings"
-	"time"
 
 	"github.com/dummydb/db"
 )
@@ -37,13 +36,13 @@ func (s *Server) HandleConnection(conn net.Conn) {
 	// connectionCount++
 	fmt.Println("Received connection : ")
 	reader := bufio.NewReader(conn)
-	connId := fmt.Sprint(time.Now().Unix())
+	// connId := fmt.Sprint(time.Now().Unix())
 
 readerLoop:
 	for {
 		message, err := reader.ReadString('\n')
-		if err != nil {
-			fmt.Println("Error reading:", err.Error())
+		if err != nil && err.Error() != "EOF" {
+			fmt.Println("Error reading message:", err.Error())
 			break
 		}
 		// Strip newline or return characters
@@ -55,7 +54,7 @@ readerLoop:
 			conn.Write([]byte("\r\n"))
 			continue readerLoop
 		}
-		log.Printf("%v I am writing ", connId)
+		// log.Printf("%v I am writing ", connId)
 		conn.Write(val)
 		conn.Write([]byte("\r\n"))
 	}
@@ -65,7 +64,8 @@ func (s *Server) handleOperations(data []byte) ([]byte, error) {
 	dataString := string(data)
 	ops := strings.Split(dataString, " ")
 
-	fmt.Println("ops : ", len(ops))
+	// fmt.Println("ops : ", len(ops))
+	// fmt.Println("ops are : ", ops)
 	if len(ops) > 3 || len(ops) < 1 {
 		// for now returning error but need to handle accordingly in future
 		return nil, fmt.Errorf("invalid operation")

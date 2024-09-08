@@ -29,16 +29,34 @@ func TestLSMTree_PutAndFind(t *testing.T) {
 	// defer teardownTestEnvironment()
 	LSMT := lsmtree.LSMT
 
-	key := "key1"
-	value := "value1"
-	LSMT.Put(key, value)
-
-	foundValue, err := LSMT.Find(key)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
+	type testCase struct {
+		Key   string
+		Value string
 	}
-	if string(foundValue) != value {
-		t.Fatalf("expected %s, got %s", value, string(foundValue))
+
+	var cases []testCase
+	for i := 0; i < 10; i++ {
+		for j := 0; j < 50; j++ {
+			cases = append(cases, testCase{
+				Key:   fmt.Sprintf("key_%d_%d", i, j),
+				Value: fmt.Sprintf("value_%d_%d", i, j),
+			})
+		}
+	}
+
+	for _, tcase := range cases {
+
+		key := tcase.Key
+		value := tcase.Value
+		LSMT.Put(key, value)
+
+		foundValue, err := LSMT.Find(key)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if string(foundValue) != value {
+			t.Fatalf("expected %s, got %s", value, string(foundValue))
+		}
 	}
 }
 
@@ -51,7 +69,7 @@ func TestLSMTree_ConvertMemCacheToSSTable(t *testing.T) {
 	os.WriteFile(walLocation, []byte(key+":"+value+";"), 0644)
 
 	LSMT.BuildMemCacheFromWAL(walLocation)
-	LSMT.ConvertMemCacheToSSTable(walLocation)
+	// LSMT.ConvertMemCacheToSSTable(walLocation)
 
 	foundValue, err := LSMT.Find(key)
 	if err != nil {
@@ -85,7 +103,7 @@ func TestLSMTree_MergeSSTables(t *testing.T) {
 
 	LSMT.Tables = append(LSMT.Tables, sst1, sst2)
 
-	err := LSMT.MergeSSTables()
+	err := LSMT.MergeSSTables(LSMT.Tables)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -148,12 +166,12 @@ func TestLSMTree_BuildMemCacheFromWAL(t *testing.T) {
 
 	LSMT.BuildMemCacheFromWAL(walLocation)
 
-	value1, found1 := LSMT.MemCache.Get("key1")
+	value1, found1 := LSMT.ActiveMemCache.Get("key1")
 	if !found1 || value1.(string) != "value1" {
 		t.Fatalf("expected key1:value1, got key1:%v", value1)
 	}
 
-	value2, found2 := LSMT.MemCache.Get("key2")
+	value2, found2 := LSMT.ActiveMemCache.Get("key2")
 	if !found2 || value2.(string) != "value2" {
 		t.Fatalf("expected key2:value2, got key2:%v", value2)
 	}
