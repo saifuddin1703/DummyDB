@@ -57,7 +57,7 @@ func ReadTest(wg *sync.WaitGroup) {
 		go func(c int) {
 			defer wg.Done()
 			for batch := 0; batch < batches; batch++ {
-				// fmt.Println("client : ", c)
+				fmt.Println("client : ", c)
 				Client(wg, c, []string{fmt.Sprintf("get key_%d_%d\n", c, batch)})
 			}
 		}(client)

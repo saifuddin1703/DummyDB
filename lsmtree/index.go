@@ -105,6 +105,7 @@ func (l *LSMTree) LoadSSTable() {
 			SegmentSize: segmentSize,
 			IsMerged:    isMerged,
 		}
+		multiplier := 1
 		for idx, kv := range kvs {
 			if len(kv) > 0 {
 				kvpair := strings.Split(kv, ":")
@@ -114,8 +115,9 @@ func (l *LSMTree) LoadSSTable() {
 				if err != nil {
 					log.Fatal("error appending segment")
 				}
-				if prevFileSize == 0 || size > 100*utils.KB || idx == len(kvs)-2 {
+				if prevFileSize == 0 || size > multiplier*(100*utils.KB) || idx == len(kvs)-2 {
 					ssTable.KeyMap[key] = prevFileSize
+					multiplier++
 				}
 				prevFileSize = int64(size)
 				l.Filter.Add([]byte(key))
@@ -130,6 +132,28 @@ func (l *LSMTree) LoadSSTable() {
 	}
 }
 
+func writeStructToJSONFile(data interface{}, filename string) error {
+	// Convert struct to JSON
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error marshalling to JSON: %v", err)
+	}
+
+	// Write JSON data to a file
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("error creating file: %v", err)
+	}
+	defer file.Close()
+
+	_, err = file.Write(jsonData)
+	if err != nil {
+		return fmt.Errorf("error writing to file: %v", err)
+	}
+
+	fmt.Println("Data written to", filename)
+	return nil
+}
 func (l *LSMTree) BuildMemCacheFromWAL(walLocation string) {
 	walContents, err := os.ReadFile(walLocation)
 
@@ -173,6 +197,7 @@ func (l *LSMTree) MergeSSTables(tables []*SSTable) error {
 	}
 
 	var size int64 = 0
+	multiplier := int64(1)
 	for idx, kv := range mergedKvs {
 		if len(kv) > 0 {
 			kvpair := strings.Split(kv, ":")
@@ -186,8 +211,9 @@ func (l *LSMTree) MergeSSTables(tables []*SSTable) error {
 			}
 
 			size = currentFilesize
-			if prevFileSize == 0 || size > 100*utils.KB || idx == len(mergedKvs)-1 {
+			if prevFileSize == 0 || size > (100*utils.KB)*multiplier || idx == len(mergedKvs)-1 {
 				mergedTable.KeyMap[key] = prevFileSize
+				multiplier++
 			}
 		}
 	}
@@ -274,7 +300,7 @@ func (l *LSMTree) ConvertMemCacheToSSTable(walLocation string, memtable *redblac
 
 	l.LSMLock.Lock()
 	l.Tables = append(l.Tables, &ssTable)
-
+	atomic.AddInt64(&l.TableCount, 1)
 	l.LSMLock.Unlock()
 
 

@@ -41,6 +41,7 @@ func (s *SSTable) HandleConstruction(MemCache *redblacktree.Tree) {
 	size := 0
 	// count := 0
 	// keys := []string{}
+	multiplier := int64(1)
 	for idx, key := range MemCache.Keys() {
 		nkey, ok := key.(string)
 		// fmt.Println("value : ", string(iterator.Value().([]byte)))
@@ -59,9 +60,10 @@ func (s *SSTable) HandleConstruction(MemCache *redblacktree.Tree) {
 		if err != nil {
 			log.Fatal("error appending segment", err)
 		}
-		if prevFileSize == 0 || currenFilesize > 100*utils.KB || idx == MemCache.Size()-1 {
+		if prevFileSize == 0 || currenFilesize > (100*utils.KB)*multiplier || idx == MemCache.Size()-1 {
 			s.KeyMap[nkey] = prevFileSize
 			fmt.Println("key and offset : ", nkey, prevFileSize)
+			multiplier++
 		}
 
 	}
