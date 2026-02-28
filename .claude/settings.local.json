@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go test ./internal/config/... -v)",
+      "Bash(go test ./internal/disk/... -v -timeout 30s)",
+      "Bash(go test ./internal/storage/lsm/... -v -race -timeout 60s 2>&1 | tail -20)"
+    ]
+  }
+}
