@@ -1,3 +1,19 @@
+// Package db is DEPRECATED.
+//
+// This package is kept for backward compatibility during the migration period.
+// It will be removed in a future version.
+//
+// Please migrate to the new architecture:
+//   - Use internal/database package instead
+//   - See MIGRATION.md for detailed migration guide
+//   - See examples in cmd/dummydb/main.go
+//
+// Known issues in this deprecated code:
+//   - Global singleton prevents multiple instances
+//   - Direct dependency on deprecated lsmtree package
+//   - No proper error handling
+//
+// DO NOT USE THIS PACKAGE IN NEW CODE.
 package db
 
 import (

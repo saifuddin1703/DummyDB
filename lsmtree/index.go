@@ -1,3 +1,19 @@
+// Package lsmtree is DEPRECATED.
+//
+// This package is kept for backward compatibility during the migration period.
+// It will be removed in a future version.
+//
+// Please migrate to the new architecture:
+//   - Use internal/storage/lsm package for LSM engine
+//   - Use internal/database package for database operations
+//   - See MIGRATION.md for detailed migration guide
+//
+// Known issues in this deprecated code:
+//   - Race conditions in concurrent operations
+//   - Global singleton prevents multiple instances
+//   - Tight coupling makes testing difficult
+//
+// DO NOT USE THIS PACKAGE IN NEW CODE.
 package lsmtree
 
 import (

@@ -1,3 +1,5 @@
+// Package lsmtree is DEPRECATED. See index.go for details.
+// Use internal/storage/sstable package instead.
 package lsmtree
 
 import (
